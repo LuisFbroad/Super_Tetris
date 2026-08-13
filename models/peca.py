@@ -1,74 +1,68 @@
 import random
-from config import (
-    FORMATOS, CORES_PECAS, COR_SUPER_PECA, 
-    MIN_BLOCOS_SUPER, MAX_BLOCOS_SUPER
-)
+from config import FORMATOS, CORES_PECAS, MIN_BLOCOS_SUPER, MAX_BLOCOS_SUPER, COR_SUPER_PECA
 
 class Peca:
-    def __init__(self, x=3, y=0):
+    def __init__(self, x, y):
         self.x = x
         self.y = y
+        self.indice_tipo = random.randint(0, len(FORMATOS) - 1)
+        self.formato = [linha[:] for linha in FORMATOS[self.indice_tipo]]
+        self.cor = CORES_PECAS[self.indice_tipo]
         self.is_super = False
-        
-        idx = random.randint(0, len(FORMATOS) - 1)
-        self.formato = [linha[:] for linha in FORMATOS[idx]]
-        self.cor = CORES_PECAS[idx]
 
-    def rotacionar(self):
-        """Rotaciona a matriz 90 graus no sentido horário."""
+    def girar(self, tabuleiro):
+        """Gira a matriz no sentido horário com suporte a Wall Kick."""
+        formato_antigo = self.formato
+        # Rotacionar matriz 90 graus
         self.formato = [list(linha) for linha in zip(*self.formato[::-1])]
 
-    def obter_posicoes_globais(self):
-        """Retorna a lista de coordenadas (x, y) absolutas de cada bloco da peça."""
-        posicoes = []
-        for i, linha in enumerate(self.formato):
-            for j, bloco in enumerate(linha):
-                if bloco == 1:
-                    posicoes.append((self.x + j, self.y + i))
-        return posicoes
+        # Tentar posicionar na posição original
+        if not tabuleiro.verificar_colisao(self):
+            return True
+
+        # --- WALL KICK: Tenta deslocar a peça para permitir o giro ---
+        deslocamentos = [(-1, 0), (1, 0), (0, -1), (-2, 0), (2, 0)]
+        for dx, dy in deslocamentos:
+            self.x += dx
+            self.y += dy
+            if not tabuleiro.verificar_colisao(self):
+                return True
+            # Reverte o deslocamento testado
+            self.x -= dx
+            self.y -= dy
+
+        # Se nenhum deslocamento funcionou, desfaz a rotação
+        self.formato = formato_antigo
+        return False
 
 
 class SuperPeca(Peca):
-    def __init__(self, x=3, y=0):
-        # Inicializa x e y na classe mãe
+    def __init__(self, x, y):
         super().__init__(x, y)
-
         self.is_super = True
         self.cor = COR_SUPER_PECA
+        self.formato = self._gerar_formato_aleatorio()
 
-        qtd_blocos = random.randint(MIN_BLOCOS_SUPER, MAX_BLOCOS_SUPER)
-        self.formato = self._gerar_formato_aleatorio(qtd_blocos)
+    def _gerar_formato_aleatorio(self):
+        num_blocos = random.randint(MIN_BLOCOS_SUPER, MAX_BLOCOS_SUPER)
+        blocos = {(0, 0)}
+        vizinhos = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-    def _gerar_formato_aleatorio(self, num_blocos):
-        tamanho = 4
-        grid = [[0 for _ in range(tamanho)] for _ in range(tamanho)]
+        while len(blocos) < num_blocos:
+            base_x, base_y = random.choice(list(blocos))
+            dx, dy = random.choice(vizinhos)
+            blocos.add((base_x + dx, base_y + dy))
 
-        cx, cy = 1, 1
-        grid[cy][cx] = 1
-        posicoes = [(cx, cy)]
-        blocos_criados = 1
+        min_x = min(b[0] for b in blocos)
+        max_x = max(b[0] for b in blocos)
+        min_y = min(b[1] for b in blocos)
+        max_y = max(b[1] for b in blocos)
 
-        tentativas = 0
-        while blocos_criados < num_blocos and tentativas < 100:
-            tentativas += 1
-            bx, by = random.choice(posicoes)
-            dx, dy = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
-            nx, ny = bx + dx, by + dy
+        largura = max_x - min_x + 1
+        altura = max_y - min_y + 1
 
-            if 0 <= nx < tamanho and 0 <= ny < tamanho and grid[ny][nx] == 0:
-                grid[ny][nx] = 1
-                posicoes.append((nx, ny))
-                blocos_criados += 1
+        matriz = [[0] * largura for _ in range(altura)]
+        for bx, by in blocos:
+            matriz[by - min_y][bx - min_x] = 1
 
-        # RETORNO OBRIGATÓRIO: sem isso, self.formato virava None
-        return self._recortar_matriz(grid)
-
-    def _recortar_matriz(self, grid):
-        grid_filtrado = [linha for linha in grid if any(linha)]
-        if not grid_filtrado:
-            return [[1]]
-        colunas = [j for j in range(len(grid_filtrado[0])) if any(grid_filtrado[i][j] for i in range(len(grid_filtrado)))]
-        if not colunas:
-            return [[1]]
-        min_c, max_c = min(colunas), max(colunas)
-        return [linha[min_c:max_c + 1] for linha in grid_filtrado]
+        return matriz

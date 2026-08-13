@@ -1,33 +1,53 @@
 from config import COLUNAS, LINHAS
 
 class Tabuleiro:
-    def __init__(self):
-        self.colunas = COLUNAS
-        self.linhas = LINHAS
+    def __init__(self, colunas=COLUNAS, linhas=LINHAS):
+        self.colunas = colunas
+        self.linhas = linhas
+        # Matriz cheia de None representando posições vazias
         self.grade = [[None for _ in range(self.colunas)] for _ in range(self.linhas)]
 
-    def posicao_valida(self, peca):
-        """Verifica se a peça está dentro dos limites da grade e sem colisões."""
-        for x, y in peca.obter_posicoes_globais():
-            if x < 0 or x >= self.colunas or y >= self.linhas:
-                return False
-            if y >= 0 and self.grade[y][x] is not None:
-                return False
-        return True
+    def verificar_colisao(self, peca):
+        """Retorna True se a peça estiver fora do tabuleiro ou colidindo com blocos fixos."""
+        for y, linha in enumerate(peca.formato):
+            for x, valor in enumerate(linha):
+                if valor:
+                    px = peca.x + x
+                    py = peca.y + y
+
+                    # Colisão com limites das paredes laterais ou fundo
+                    if px < 0 or px >= self.colunas or py >= self.linhas:
+                        return True
+
+                    # Colisão com blocos já fixados (ignora posições acima do topo da tela py < 0)
+                    if py >= 0 and self.grade[py][px] is not None:
+                        return True
+
+        return False
 
     def fixar_peca(self, peca):
-        """Fixa a cor da peça nas coordenadas correspondentes da grade."""
-        for x, y in peca.obter_posicoes_globais():
-            if y >= 0:
-                self.grade[y][x] = peca.cor
+        """Fixa as células da peça no tabuleiro permanentemente."""
+        for y, linha in enumerate(peca.formato):
+            for x, valor in enumerate(linha):
+                if valor:
+                    px = peca.x + x
+                    py = peca.y + y
+                    if 0 <= py < self.linhas and 0 <= px < self.colunas:
+                        self.grade[py][px] = peca.cor
 
-    def limpar_linhas(self):
-        """Remove linhas completas e adiciona novas linhas vazias no topo."""
-        nova_grade = [linha for linha in self.grade if None in linha]
-        linhas_limpas = self.linhas - len(nova_grade)
+    def limpar_linhas_completas(self):
+        """Remove linhas cheias e desce as linhas acima, retornando a quantidade limpa."""
+        linhas_limpas = 0
+        y = self.linhas - 1
 
-        while len(nova_grade) < self.linhas:
-            nova_grade.insert(0, [None for _ in range(self.colunas)])
+        while y >= 0:
+            # Verifica se todas as células da linha contêm uma cor
+            if all(celula is not None for celula in self.grade[y]):
+                linhas_limpas += 1
+                del self.grade[y]
+                # Insere uma nova linha vazia no topo
+                self.grade.insert(0, [None for _ in range(self.colunas)])
+            else:
+                y -= 1
 
-        self.grade = nova_grade
         return linhas_limpas
