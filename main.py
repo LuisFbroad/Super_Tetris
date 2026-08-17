@@ -1,45 +1,50 @@
 import pygame
-from modos.classico import iniciar_classico
-from modos.fisico import iniciar_fisico
+
+from controllers.gerenciador_menu import GerenciadorMenu
+from controllers.gerenciador_jogo import GerenciadorJogo
+from controllers.modos.modo_classic import ModoClassic
+from controllers.modos.modo_survival import ModoSurvival
 
 
-def menu():
+def main():
+
     pygame.init()
 
-    tela = pygame.display.set_mode((800, 600))
+    tela = pygame.display.set_mode((800, 800))
+
     pygame.display.set_caption("Super Tetris")
 
-    fonte = pygame.font.Font(None, 50)
+    menu = GerenciadorMenu(tela)
 
     rodando = True
 
     while rodando:
-        tela.fill((20, 20, 20))
 
-        titulo = fonte.render("SUPER TETRIS", True, (255, 255, 255))
-        opcao1 = fonte.render("1 - Modo Clássico", True, (255, 255, 255))
-        opcao2 = fonte.render("2 - Modo Físico", True, (255, 255, 255))
+        escolha = menu.executar()
 
-        tela.blit(titulo, (250, 100))
-        tela.blit(opcao1, (230, 250))
-        tela.blit(opcao2, (230, 320))
+        if escolha == "CLASSIC":
 
-        pygame.display.flip()
+            jogo = GerenciadorJogo()
 
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                rodando = False
+            modo = ModoClassic(jogo)
 
-            elif evento.type == pygame.KEYDOWN:
+            modo.executar()
 
-                if evento.key == pygame.K_1:
-                    iniciar_classico()
+        elif escolha == "SURVIVAL":
 
-                elif evento.key == pygame.K_2:
-                    iniciar_fisico()
+            survival = ModoSurvival(tela)
+
+            resultado = survival.executar()
+
+            if resultado == "MENU":
+                continue
+
+        elif escolha == "SAIR":
+
+            rodando = False
 
     pygame.quit()
 
 
 if __name__ == "__main__":
-    menu()
+    main()
